@@ -1,0 +1,10 @@
+mujoco==3.10.0
+numpy
+gymnasium
+stable-baselines3
+torch
+imageio[ffmpeg]
+huggingface_hub>=0.34
+httpx
+fastapi
+uvicorn[standard]

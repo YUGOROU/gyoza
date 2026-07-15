@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+outputs/
+third_party/
+gyoza/assets/veg/
+.DS_Store

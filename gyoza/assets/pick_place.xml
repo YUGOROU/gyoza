@@ -1,0 +1,75 @@
+<mujoco model="gyoza_pick_place">
+  <!-- GYOZA pick_place プレースホルダ環境（D3/D4/D10）— キッチン再現レイアウト
+       - 双腕 SO-101 は「人がキッチンに立つ」手前側の並列配置（両腕とも +y の調理面を向く）
+       - カウンター白 + 木製まな板（作業ゾーン・将来の cut エリア）+ バックスプラッシュ
+       - トマト = 赤球プレースホルダ（TRELLIS アセット到着後に差し替え）
+       - 皿 = 白円盤（MJCF プリミティブ、D10）
+       - 俯瞰カメラ = 状態観測の正（c2w ほぼ identity）。side はデモ・第2フレーム用 -->
+
+  <option integrator="implicitfast" timestep="0.005" cone="elliptic" iterations="10" ls_iterations="20" impratio="10"/>
+
+  <visual>
+    <headlight diffuse="0.35 0.35 0.35" ambient="0.28 0.28 0.28" specular="0 0 0"/>
+    <global offwidth="1600" offheight="1200"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.85 0.88 0.92" rgb2="0.55 0.60 0.68"
+             width="512" height="3072"/>
+    <model name="so101" file="../../third_party/mujoco_menagerie/robotstudio_so101/so101.xml"/>
+    <material name="counter_mat" rgba="0.88 0.87 0.84 1" reflectance="0.08"/>
+    <material name="board_mat" rgba="0.62 0.45 0.28 1" reflectance="0.02"/>
+    <texture type="2d" name="tile" builtin="checker" rgb1="0.75 0.78 0.80" rgb2="0.68 0.71 0.74"
+             width="128" height="128"/>
+    <material name="tile_mat" texture="tile" texrepeat="12 6"/>
+    <material name="plate_mat" rgba="0.93 0.93 0.90 1" reflectance="0.1"/>
+    <material name="tomato_mat" rgba="0.85 0.12 0.08 1"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0.1 -0.1 1.5" dir="0 0 -1" directional="true" diffuse="0.5 0.5 0.5"/>
+    <light pos="-0.4 -0.6 1.0" dir="0.3 0.4 -1" diffuse="0.25 0.25 0.25"/>
+
+    <!-- カウンター天面（z=0）とバックスプラッシュ（奥 +y 側） -->
+    <geom name="counter" type="plane" size="0.7 0.5 0.05" material="counter_mat"/>
+    <geom name="backsplash" type="box" size="1.4 0.012 0.45" pos="0 0.42 0.45" material="tile_mat"/>
+
+    <!-- まな板（作業ゾーン。将来の cut エリア。天面 z=0.015。移設後の皿と重ならないよう x=0.01） -->
+    <geom name="cutting_board" type="box" size="0.14 0.14 0.0075" pos="0.01 -0.06 0.0075"
+          material="board_mat" friction="1 0.005 0.0005"/>
+
+    <!-- 双腕: 手前（-y）側に並列、いずれも調理面（+y）を向く -->
+    <frame pos="0.10 -0.32 0" quat="0.7071068 0 0 0.7071068">
+      <attach model="so101" body="base" prefix="follower_"/>
+    </frame>
+    <frame pos="-0.16 -0.32 0" quat="0.7071068 0 0 0.7071068">
+      <attach model="so101" body="base" prefix="helper_"/>
+    </frame>
+
+    <!-- ランチョンマット（白皿と白カウンターのコントラスト確保 = VLM/VLA 視認性） -->
+    <geom name="placemat" type="box" size="0.085 0.085 0.001" pos="0.204 -0.118 0.001"
+          rgba="0.28 0.30 0.33 1"/>
+
+    <!-- 皿: まな板の右横・マット上（盛り付けゾーン = 円盤中心 site）
+         位置は RL エキスパート（v3a-warm-perf）の実測到達点に一致させた設計選択
+         （2026-07-06。SO-101 の作業空間内で確実に届く盛り付け位置 = データ工場の前提） -->
+    <body name="plate" pos="0.204 -0.118 0.002">
+      <geom name="plate_base" type="cylinder" size="0.055 0.006" pos="0 0 0.006" material="plate_mat"/>
+      <geom name="plate_rim" type="cylinder" size="0.06 0.003" pos="0 0 0.015" material="plate_mat"
+            contype="0" conaffinity="0"/>
+      <site name="plate_center" pos="0 0 0.012" size="0.005" rgba="0 1 0 0"/>
+    </body>
+
+    <!-- トマト: まな板上に初期配置（ミニトマト r≈16mm） -->
+    <body name="tomato" pos="-0.02 -0.07 0.035">
+      <freejoint name="tomato_free"/>
+      <geom name="tomato_geom" type="sphere" size="0.016" mass="0.012" material="tomato_mat"
+            friction="1 0.005 0.0005" condim="6" priority="2"/>
+    </body>
+
+    <!-- 俯瞰カメラ（状態観測の正）: 作業領域中心の真上、-z を見下ろす -->
+    <camera name="overhead" pos="0.12 -0.07 0.55" quat="1 0 0 0" fovy="58"/>
+    <!-- サイドカメラ（第2フレーム・デモ用）: 右手前上方から調理面を望む（背景=バックスプラッシュ） -->
+    <camera name="side" pos="0.55 -0.48 0.38" mode="targetbody" target="tomato" fovy="55"/>
+  </worldbody>
+</mujoco>
